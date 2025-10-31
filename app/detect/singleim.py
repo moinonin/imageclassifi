@@ -1,6 +1,7 @@
 import os
 import sys
 import pandas as pd
+from tqdm import tqdm
 
 # Ensure the app directory (your working directory) is on sys.path
 APP_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -20,7 +21,8 @@ def detect_ai_in_folder(im_dir):
 
     print(f"=== AI DETECTION FOR {len(image_files)} IMAGES ===")
 
-    for fname in image_files:
+    # Run detection for each image with progress bar
+    for fname in tqdm(image_files, desc="Detecting AI in images", unit="img"):
         path = os.path.join(im_dir, fname)
         try:
             result = detect_ai_single_image(path)

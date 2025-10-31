@@ -634,6 +634,7 @@ def detect_ai_single_image(image_path):
 # MAIN EXECUTION
 # ============================================================================
 
+
 if __name__ == "__main__":
     '''
     # Replace these with your actual image file paths
