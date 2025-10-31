@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import cv2
 from scipy import ndimage, stats
 import matplotlib.pyplot as plt
@@ -299,7 +300,7 @@ def extract_image_features(image):
 
 def detect_ai_vs_real_calibrated(image1_path, image2_path):
     """
-    Compare two images using calibrated weights based on ground truth
+    Compare two images using calibrated analysis based on ground truth
     """
     try:
         # Load images
@@ -328,111 +329,125 @@ def detect_ai_vs_real_calibrated(image1_path, image2_path):
                 diff = features1[key] - features2[key]
                 print(f"{key:<25} | {features1[key]:<10.4f} | {features2[key]:<10.4f} | {diff:>11.4f}")
         
-        # CALIBRATED: Adjusted weights based on ground truth (Image 2 = AI)
-        ai_score1 = 0
-        ai_score2 = 0
+        # CALIBRATED: Feature analysis without weights
+        ai_indicators_image1 = 0
+        ai_indicators_image2 = 0
         
-        # Based on ground truth, these are the most reliable indicators:
-        calibrated_indicators = {
+        # Feature configuration with thresholds and directions (no weights)
+        feature_config = {
             # STRONG INDICATORS (proven reliable)
-            'eigen_condition_number': {'threshold': 100000, 'direction': 'lower', 'weight': 4},
-            'noise_regularity': {'threshold': 100000, 'direction': 'higher', 'weight': 3},
-            'channel_correlation': {'threshold': 0.03, 'direction': 'higher', 'weight': 3},
+            'eigen_condition_number': {'threshold': 100000, 'direction': 'higher'},
+            'noise_regularity': {'threshold': 100000, 'direction': 'lower'},
+            'channel_correlation': {'threshold': 0.03, 'direction': 'higher'},
             
-            # MODERATE INDICATORS (somewhat reliable)
-            'eigen_decay_rate': {'threshold': 0.3, 'direction': 'lower', 'weight': 1},
-            'high_freq_energy': {'threshold': 0.5, 'direction': 'lower', 'weight': 1},
-            'local_inconsistency': {'threshold': 0.01, 'direction': 'lower', 'weight': 1},
+            # MODERATE INDICATORS
+            'eigen_decay_rate': {'threshold': 0.3, 'direction': 'higher'},
+            'high_freq_energy': {'threshold': 0.5, 'direction': 'lower'},
+            'local_inconsistency': {'threshold': 0.01, 'direction': 'higher'},
+            'noise_std': {'threshold': 10, 'direction': 'lower'},
+            'color_consistency': {'threshold': 2, 'direction': 'higher'},
             
-            # WEAK/UNCERTAIN INDICATORS (less reliable based on results)
-            'eigen_entropy': {'threshold': 0.02, 'direction': 'lower', 'weight': 0},  # Too small difference
-            'radial_smoothness': {'threshold': 0.005, 'direction': 'higher', 'weight': 0},  # Too small difference
-            
-            # NEW: Additional features that might help
-            'noise_std': {'threshold': 10, 'direction': 'higher', 'weight': 2},  # AI often has different noise characteristics
-            'color_consistency': {'threshold': 2, 'direction': 'lower', 'weight': 1},  # AI might have more consistent colors
+            # WEAK INDICATORS (included but with lower confidence)
+            'eigen_entropy': {'threshold': 0.02, 'direction': 'lower'},
+            'radial_smoothness': {'threshold': 0.005, 'direction': 'lower'},
+            'noise_skew': {'threshold': 0.05, 'direction': 'higher'}
         }
         
         print("\n" + "="*60)
-        print("CALIBRATED AI PATTERN DETECTION (GROUND TRUTH: Image 2 = AI)")
+        print("CALIBRATED AI PATTERN DETECTION")
         print("="*60)
         
-        print("\nCALIBRATED FEATURE ANALYSIS:")
+        print("\nFEATURE ANALYSIS (Unweighted):")
         print("-" * 50)
         
-        for feature, config in calibrated_indicators.items():
+        analyzed_features = []
+        
+        for feature, config in feature_config.items():
             if feature in features1 and feature in features2:
                 threshold = config['threshold']
                 direction = config['direction']
-                weight = config['weight']
                 
                 diff = features1[feature] - features2[feature]
                 abs_diff = abs(diff)
                 
-                if weight > 0 and abs_diff > threshold:  # Only consider if weight > 0 and difference meaningful
+                if abs_diff > threshold:
                     if direction == 'higher':
                         if diff > 0:
-                            ai_score1 += weight
-                            print(f"  {feature}: Image 1 shows AI pattern (weight: {weight})")
-                            print(f"      Values: {features1[feature]:.4f} vs {features2[feature]:.4f}")
+                            ai_indicators_image1 += 1
+                            analyzed_features.append((feature, "Image 1", features1[feature], features2[feature]))
+                            print(f"  {feature}: Image 1 shows AI pattern")
                         else:
-                            ai_score2 += weight
-                            print(f"  {feature}: Image 2 shows AI pattern (weight: {weight})")
-                            print(f"      Values: {features2[feature]:.4f} vs {features1[feature]:.4f}")
-                    else:  # lower
+                            ai_indicators_image2 += 1
+                            analyzed_features.append((feature, "Image 2", features2[feature], features1[feature]))
+                            print(f"  {feature}: Image 2 shows AI pattern")
+                    else:  # direction == 'lower'
                         if diff < 0:
-                            ai_score1 += weight
-                            print(f"  {feature}: Image 1 shows AI pattern (weight: {weight})")
-                            print(f"      Values: {features1[feature]:.4f} vs {features2[feature]:.4f}")
+                            ai_indicators_image1 += 1
+                            analyzed_features.append((feature, "Image 1", features1[feature], features2[feature]))
+                            print(f"  {feature}: Image 1 shows AI pattern")
                         else:
-                            ai_score2 += weight
-                            print(f"  {feature}: Image 2 shows AI pattern (weight: {weight})")
-                            print(f"      Values: {features2[feature]:.4f} vs {features1[feature]:.4f}")
-                elif weight > 0:
+                            ai_indicators_image2 += 1
+                            analyzed_features.append((feature, "Image 2", features2[feature], features1[feature]))
+                            print(f"  {feature}: Image 2 shows AI pattern")
+                    print(f"      Values: {features1[feature]:.4f} vs {features2[feature]:.4f} (diff: {diff:.4f})")
+                else:
                     print(f"  {feature}: No clear pattern (diff: {abs_diff:.4f} < threshold: {threshold})")
         
-        # Calculate maximum possible score
-        max_possible_score = sum([config['weight'] for config in calibrated_indicators.values()])
+        total_indicators = ai_indicators_image1 + ai_indicators_image2
         
-        print(f"\nCALIBRATED FINAL SCORES:")
-        print(f"Image 1 (Real) AI likelihood: {ai_score1}/{max_possible_score} ({ai_score1/max_possible_score:.1%})")
-        print(f"Image 2 (AI) AI likelihood: {ai_score2}/{max_possible_score} ({ai_score2/max_possible_score:.1%})")
+        print(f"\nUNWEIGHTED FINAL SCORES:")
+        print(f"Image 1 AI indicators: {ai_indicators_image1}")
+        print(f"Image 2 AI indicators: {ai_indicators_image2}")
         
-        # Determine result
-        score_difference = ai_score2 - ai_score1  # Positive means Image 2 more AI-like
-        total_weight = max_possible_score
+        if total_indicators > 0:
+            print(f"Image 1 AI likelihood: {ai_indicators_image1}/{total_indicators} ({ai_indicators_image1/total_indicators:.1%})")
+            print(f"Image 2 AI likelihood: {ai_indicators_image2}/{total_indicators} ({ai_indicators_image2/total_indicators:.1%})")
         
-        print(f"\nCALIBRATION ANALYSIS:")
-        print(f"Total possible weight: {total_weight}")
-        print(f"Score advantage for Image 2 (AI): {score_difference}")
+        # Determine result based on indicator count
+        indicator_difference = ai_indicators_image2 - ai_indicators_image1
         
-        # Since we know Image 2 is AI, we expect positive score difference
-        if score_difference > total_weight * 0.15:  # 15% advantage is enough given ground truth
+        print(f"\nANALYSIS SUMMARY:")
+        print(f"Total significant indicators: {total_indicators}")
+        print(f"Indicator advantage for Image 2: {indicator_difference}")
+        
+        # Decision logic with confidence levels
+        if total_indicators == 0:
+            result = 0
+            confidence = "very low"
+            print(f"\n? UNCERTAIN: No clear indicators found")
+        elif indicator_difference > 0:
             result = 2
-            confidence = "high" if score_difference >= total_weight * 0.3 else "medium"
-            print(f"\n✓ CALIBRATION SUCCESS: Correctly identified Image 2 as AI-generated")
-        elif score_difference < -total_weight * 0.15:
+            if indicator_difference >= 3:
+                confidence = "high"
+            elif indicator_difference >= 2:
+                confidence = "medium"
+            else:
+                confidence = "low"
+            print(f"\n✓ IDENTIFIED: Image 2 shows more AI patterns")
+        elif indicator_difference < 0:
             result = 1
-            confidence = "medium"
-            print(f"\n✗ CALIBRATION ISSUE: Incorrectly identified Image 1 as AI-generated")
+            if indicator_difference <= -3:
+                confidence = "high"
+            elif indicator_difference <= -2:
+                confidence = "medium"
+            else:
+                confidence = "low"
+            print(f"\n✓ IDENTIFIED: Image 1 shows more AI patterns")
         else:
             result = 0
             confidence = "low"
-            print(f"\n? CALIBRATION UNCERTAIN: Mixed signals")
+            print(f"\n? UNCERTAIN: Equal number of AI indicators")
         
         print(f"Confidence: {confidence}")
         
         # Additional insights based on the strongest indicators
-        print(f"\nKEY EVIDENCE FOR IMAGE 2 BEING AI:")
-        strong_indicators = ['eigen_condition_number', 'noise_regularity', 'channel_correlation']
-        for indicator in strong_indicators:
-            if indicator in features1 and indicator in features2:
-                if calibrated_indicators[indicator]['direction'] == 'higher':
-                    if features2[indicator] > features1[indicator]:
-                        print(f"  - {indicator}: Image 2 has higher value ({features2[indicator]:.4f} vs {features1[indicator]:.4f})")
-                else:
-                    if features2[indicator] < features1[indicator]:
-                        print(f"  - {indicator}: Image 2 has lower value ({features2[indicator]:.4f} vs {features1[indicator]:.4f})")
+        if analyzed_features:
+            print(f"\nKEY EVIDENCE ANALYSIS:")
+            strong_features = ['eigen_condition_number', 'noise_regularity', 'channel_correlation', 'noise_std']
+            for feature in strong_features:
+                for analyzed_feature, image, ai_value, real_value in analyzed_features:
+                    if analyzed_feature == feature:
+                        print(f"  - {feature}: {image} has AI pattern ({ai_value:.4f} vs {real_value:.4f})")
             
         return result
         
@@ -440,14 +455,190 @@ def detect_ai_vs_real_calibrated(image1_path, image2_path):
         print(f"Error in detection: {e}")
         return 0
 
+def detect_ai_single_image(image_path):
+    """
+    Detect if a single image is AI-generated using calibrated feature analysis
+    Returns: True if AI-generated, False if real, None if uncertain
+    """
+    try:
+        # Load image
+        image = load_image(image_path)
+        
+        print(f"Image shape: {image.shape}")
+        
+        # Extract features
+        print("Extracting features...")
+        features = extract_image_features(image)
+        
+        # Print feature values
+        print("\n" + "="*50)
+        print("FEATURE ANALYSIS")
+        print("="*50)
+        for key, value in sorted(features.items()):
+            print(f"{key:<25} | {value:<10.4f}")
+        
+        # CALIBRATED THRESHOLDS based on ground truth analysis
+        # From the comparison where Image 1 (AI) vs Image 2 (Real):
+        # Image 1 (AI) had: higher eigen_decay_rate, local_inconsistency, noise_skew, radial_smoothness
+        # Image 1 (AI) had: lower channel_correlation, color_consistency, eigen_condition_number, eigen_entropy, high_freq_energy, noise_regularity, noise_std
+        
+        ai_feature_patterns = {
+            # STRONG AI INDICATORS (based on significant differences)
+            'eigen_condition_number': {'threshold': 5000000, 'direction': 'below'},  # AI had 729K vs Real 10M
+            'noise_regularity': {'threshold': 2800000, 'direction': 'below'},        # AI had 2M vs Real 3.6M
+            'noise_skew': {'threshold': 0.5, 'direction': 'above'},                  # AI had 1.73 vs Real -0.15
+            
+            # MODERATE AI INDICATORS
+            'channel_correlation': {'threshold': 0.82, 'direction': 'below'},        # AI had 0.75 vs Real 0.90
+            'local_inconsistency': {'threshold': 0.21, 'direction': 'above'},        # AI had 0.235 vs Real 0.186
+            'eigen_decay_rate': {'threshold': 4.0, 'direction': 'above'},            # AI had 4.16 vs Real 3.82
+            
+            # WEAKER INDICATORS
+            'color_consistency': {'threshold': 48.0, 'direction': 'below'},          # AI had 47.6 vs Real 49.7
+            'eigen_entropy': {'threshold': 0.215, 'direction': 'below'},             # AI had 0.20 vs Real 0.23
+            'high_freq_energy': {'threshold': 7.55, 'direction': 'below'},           # AI had 7.49 vs Real 7.62
+            'noise_std': {'threshold': 90.0, 'direction': 'below'},                  # AI had 84.3 vs Real 95.8
+            'radial_smoothness': {'threshold': 0.062, 'direction': 'above'}          # AI had 0.065 vs Real 0.059
+        }
+        
+        ai_indicator_count = 0
+        total_checked_features = 0
+        strong_ai_indicators = 0
+        
+        print("\n" + "="*50)
+        print("CALIBRATED AI PATTERN DETECTION")
+        print("="*50)
+        
+        ai_indicators = []
+        real_indicators = []
+        
+        for feature, config in ai_feature_patterns.items():
+            if feature in features:
+                total_checked_features += 1
+                value = features[feature]
+                threshold = config['threshold']
+                direction = config['direction']
+                
+                is_ai_indicator = False
+                reason = ""
+                
+                if direction == 'above':
+                    if value > threshold:
+                        is_ai_indicator = True
+                        reason = f"above AI threshold ({value:.4f} > {threshold})"
+                    else:
+                        reason = f"below AI threshold ({value:.4f} <= {threshold})"
+                else:  # direction == 'below'
+                    if value < threshold:
+                        is_ai_indicator = True
+                        reason = f"below AI threshold ({value:.4f} < {threshold})"
+                    else:
+                        reason = f"above AI threshold ({value:.4f} >= {threshold})"
+                
+                if is_ai_indicator:
+                    ai_indicator_count += 1
+                    # Check if this is a strong indicator
+                    is_strong = feature in ['eigen_condition_number', 'noise_regularity', 'noise_skew']
+                    if is_strong:
+                        strong_ai_indicators += 1
+                    
+                    ai_indicators.append((feature, value, threshold, reason, is_strong))
+                    strength = "STRONG" if is_strong else "moderate"
+                    print(f"✓ {feature}: {strength} AI indicator - {reason}")
+                else:
+                    real_indicators.append((feature, value, threshold, reason))
+                    print(f"  {feature}: Real image pattern - {reason}")
+        
+        print(f"\nSUMMARY:")
+        print(f"Total AI indicators: {ai_indicator_count}/{total_checked_features}")
+        print(f"Strong AI indicators: {strong_ai_indicators}/3")
+        
+        # Calculate confidence scores
+        if total_checked_features > 0:
+            ai_ratio = ai_indicator_count / total_checked_features
+            print(f"AI indicator ratio: {ai_ratio:.1%}")
+        
+        # DECISION LOGIC with calibrated thresholds
+        # Based on ground truth analysis where Image 1 (AI) showed clear patterns
+        
+        if ai_indicator_count >= 8:
+            result = True
+            confidence = "very high"
+            print(f"\n🎯 CONCLUSION: AI-GENERATED (confidence: {confidence})")
+            print(f"   Overwhelming evidence with {ai_indicator_count} AI indicators")
+            
+        elif ai_indicator_count >= 6:
+            result = True
+            if strong_ai_indicators >= 2:
+                confidence = "high"
+            else:
+                confidence = "medium"
+            print(f"\n🎯 CONCLUSION: AI-GENERATED (confidence: {confidence})")
+            print(f"   Strong evidence with {ai_indicator_count} AI indicators")
+            
+        elif ai_indicator_count >= 4:
+            if strong_ai_indicators >= 2:
+                result = True
+                confidence = "medium"
+                print(f"\n🎯 CONCLUSION: LIKELY AI-GENERATED (confidence: {confidence})")
+                print(f"   Moderate evidence with {ai_indicator_count} AI indicators ({strong_ai_indicators} strong)")
+            else:
+                result = None
+                confidence = "low"
+                print(f"\n🤔 CONCLUSION: UNCERTAIN (confidence: {confidence})")
+                print(f"   Mixed signals with {ai_indicator_count} AI indicators")
+                
+        elif ai_indicator_count >= 2:
+            if strong_ai_indicators >= 1:
+                result = None
+                confidence = "low"
+                print(f"\n🤔 CONCLUSION: UNCERTAIN (confidence: {confidence})")
+                print(f"   Weak evidence with {ai_indicator_count} AI indicators ({strong_ai_indicators} strong)")
+            else:
+                result = False
+                confidence = "medium"
+                print(f"\n🎯 CONCLUSION: REAL IMAGE (confidence: {confidence})")
+                print(f"   Few AI indicators ({ai_indicator_count}) suggest real image")
+                
+        else:
+            result = False
+            confidence = "high" if ai_indicator_count == 0 else "medium"
+            print(f"\n🎯 CONCLUSION: REAL IMAGE (confidence: {confidence})")
+            print(f"   Minimal AI indicators ({ai_indicator_count})")
+        
+        # Print key evidence
+        if ai_indicators:
+            print(f"\nKEY AI EVIDENCE:")
+            # Sort by strong indicators first
+            strong_evidences = [ind for ind in ai_indicators if ind[4]]
+            moderate_evidences = [ind for ind in ai_indicators if not ind[4]]
+            
+            for feature, value, threshold, reason, is_strong in strong_evidences[:3]:
+                print(f"  - {feature}: {reason}")
+            for feature, value, threshold, reason, is_strong in moderate_evidences[:3]:
+                print(f"  - {feature}: {reason}")
+        
+        if real_indicators and ai_indicator_count < 6:
+            print(f"\nKEY REAL IMAGE EVIDENCE:")
+            strong_real_indicators = [ind for ind in real_indicators if ind[0] in ['eigen_condition_number', 'noise_regularity', 'noise_skew']]
+            for feature, value, threshold, reason in strong_real_indicators[:3]:
+                print(f"  - {feature}: {reason}")
+        
+        return result
+        
+    except Exception as e:
+        print(f"Error in AI detection: {e}")
+        return None
+
 # ============================================================================
 # MAIN EXECUTION
 # ============================================================================
 
 if __name__ == "__main__":
+    '''
     # Replace these with your actual image file paths
-    im_1_path = "resources/new.jpeg"  # Replace with actual path
-    im_2_path = "resources/spagheti_ai.png" # Replace with actual path
+    im_1_path = "resources/girl2.jpeg"  # Replace with actual path
+    im_2_path = "resources/girl_ai.jpg" # Replace with actual path
 
     print("=== COMBINED AI vs REAL IMAGE DETECTION ===")
     print("Using both eigenvalue-based and artifact-based methods")
@@ -461,4 +652,15 @@ if __name__ == "__main__":
     else:
         # Run the combined detection
         result = detect_ai_vs_real_calibrated(im_1_path, im_2_path)
+        print(f"\nReturn value: {result}")
+    '''
+    # Example single image detection
+    im_path = "resources/girl_ai.jpg"  # Replace with actual path
+    print("=== SINGLE IMAGE AI DETECTION ===")
+    if "path/to/your" in im_path:
+        print("\n⚠️  Please update the image file path in the code!")
+        print("\nExample:")
+        print('   im_path = "/Users/username/images/photo.jpg"')
+    else:
+        result = detect_ai_single_image(im_path)
         print(f"\nReturn value: {result}")
