@@ -564,6 +564,7 @@ def detect_ai_single_image(image_path):
         if ai_indicator_count >= 8:
             result = True
             confidence = "very high"
+            feat = features
             print(f"\n🎯 CONCLUSION: AI-GENERATED (confidence: {confidence})")
             print(f"   Overwhelming evidence with {ai_indicator_count} AI indicators")
             
@@ -573,6 +574,7 @@ def detect_ai_single_image(image_path):
                 confidence = "high"
             else:
                 confidence = "medium"
+            feat = features
             print(f"\n🎯 CONCLUSION: AI-GENERATED (confidence: {confidence})")
             print(f"   Strong evidence with {ai_indicator_count} AI indicators")
             
@@ -580,11 +582,13 @@ def detect_ai_single_image(image_path):
             if strong_ai_indicators >= 2:
                 result = True
                 confidence = "medium"
+                feat = features
                 print(f"\n🎯 CONCLUSION: LIKELY AI-GENERATED (confidence: {confidence})")
                 print(f"   Moderate evidence with {ai_indicator_count} AI indicators ({strong_ai_indicators} strong)")
             else:
                 result = None
                 confidence = "low"
+                feat = features
                 print(f"\n🤔 CONCLUSION: UNCERTAIN (confidence: {confidence})")
                 print(f"   Mixed signals with {ai_indicator_count} AI indicators")
                 
@@ -592,17 +596,20 @@ def detect_ai_single_image(image_path):
             if strong_ai_indicators >= 1:
                 result = None
                 confidence = "low"
+                feat = features
                 print(f"\n🤔 CONCLUSION: UNCERTAIN (confidence: {confidence})")
                 print(f"   Weak evidence with {ai_indicator_count} AI indicators ({strong_ai_indicators} strong)")
             else:
                 result = False
                 confidence = "medium"
+                feat = features
                 print(f"\n🎯 CONCLUSION: REAL IMAGE (confidence: {confidence})")
                 print(f"   Few AI indicators ({ai_indicator_count}) suggest real image")
                 
         else:
             result = False
             confidence = "high" if ai_indicator_count == 0 else "medium"
+            feat = features
             print(f"\n🎯 CONCLUSION: REAL IMAGE (confidence: {confidence})")
             print(f"   Minimal AI indicators ({ai_indicator_count})")
         
@@ -623,9 +630,9 @@ def detect_ai_single_image(image_path):
             strong_real_indicators = [ind for ind in real_indicators if ind[0] in ['eigen_condition_number', 'noise_regularity', 'noise_skew']]
             for feature, value, threshold, reason in strong_real_indicators[:3]:
                 print(f"  - {feature}: {reason}")
-        
-        return result, confidence
-        
+
+        return result, confidence, feat
+
     except Exception as e:
         print(f"Error in AI detection: {e}")
         return None

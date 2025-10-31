@@ -9,6 +9,8 @@ APP_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if APP_DIR not in sys.path:
     sys.path.insert(0, APP_DIR)
 
+from colorprint.richstuf import print_colorful_results
+
 from main import detect_ai_single_image  # main.py lives inside app/
 
 def detect_ai_in_folder(im_dir):
@@ -35,14 +37,9 @@ def detect_ai_in_folder(im_dir):
         except Exception as e:
             print(f"Error processing {fname}: {e}")
 
+
     df = pd.DataFrame(results)
-    df["is_ai"] = df["filename"].str.contains(r"_ai(?=\.[^.]+$)", regex=True)
-    df[["outcome", "confidence"]] = pd.DataFrame(df["result"].tolist(), index=df.index)
-    df["detected"] = np.where(df["outcome"] == True, "AI-Generated", "Human-Created")
-    print("\n=== SUMMARY RESULTS ===")
-    df.drop(columns=["result", "outcome"], inplace=True)
-    df = df[["filename", "is_ai", "detected", "confidence"]]
-    print(df.to_string(index=False))
+    print_colorful_results(df)
     
     return df
 

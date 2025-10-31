@@ -1,2 +1,2 @@
-resdect:
+troydect:
 	python preproimgs/tidy.py && python detect/singleim.py
