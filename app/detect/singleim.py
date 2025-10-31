@@ -1,6 +1,7 @@
 import os
 import sys
 import pandas as pd
+import numpy as np
 from tqdm import tqdm
 
 # Ensure the app directory (your working directory) is on sys.path
@@ -35,6 +36,7 @@ def detect_ai_in_folder(im_dir):
             print(f"Error processing {fname}: {e}")
 
     df = pd.DataFrame(results)
+    df["result"] = np.where(df["result"] == True, "AI-Generated", "Human-Created")
     print("\n=== SUMMARY RESULTS ===")
     print(df.to_string(index=False))
     return df
