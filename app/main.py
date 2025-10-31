@@ -624,7 +624,7 @@ def detect_ai_single_image(image_path):
             for feature, value, threshold, reason in strong_real_indicators[:3]:
                 print(f"  - {feature}: {reason}")
         
-        return result
+        return result, confidence
         
     except Exception as e:
         print(f"Error in AI detection: {e}")

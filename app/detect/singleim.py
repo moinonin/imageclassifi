@@ -36,9 +36,14 @@ def detect_ai_in_folder(im_dir):
             print(f"Error processing {fname}: {e}")
 
     df = pd.DataFrame(results)
-    df["result"] = np.where(df["result"] == True, "AI-Generated", "Human-Created")
+    df["is_ai"] = df["filename"].str.contains(r"_ai(?=\.[^.]+$)", regex=True)
+    df[["outcome", "confidence"]] = pd.DataFrame(df["result"].tolist(), index=df.index)
+    df["detected"] = np.where(df["outcome"] == True, "AI-Generated", "Human-Created")
     print("\n=== SUMMARY RESULTS ===")
+    df.drop(columns=["result", "outcome"], inplace=True)
+    df = df[["filename", "is_ai", "detected", "confidence"]]
     print(df.to_string(index=False))
+    
     return df
 
 
