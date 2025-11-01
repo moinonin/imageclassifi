@@ -8,6 +8,8 @@ from skimage.util import view_as_blocks
 from scipy.optimize import curve_fit
 import os
 
+im_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "./resources"))
+
 def load_image(image_path):
     """Load image from file path and handle errors"""
     if isinstance(image_path, str):
@@ -636,39 +638,210 @@ def detect_ai_single_image(image_path):
     except Exception as e:
         print(f"Error in AI detection: {e}")
         return None
+import os
+from PIL import Image
+import numpy as np
 
-# ============================================================================
-# MAIN EXECUTION
-# ============================================================================
-
-
-if __name__ == "__main__":
-    '''
-    # Replace these with your actual image file paths
-    im_1_path = "resources/girl2.jpeg"  # Replace with actual path
-    im_2_path = "resources/girl_ai.jpg" # Replace with actual path
-
-    print("=== COMBINED AI vs REAL IMAGE DETECTION ===")
-    print("Using both eigenvalue-based and artifact-based methods")
+def detect_ai_in_folder(folder_path):
+    """
+    Detect AI-generated images in a folder and return results for DataFrame
+    Returns: List of dictionaries with filename, is_ai (ground truth), result (outcome, confidence, features)
+    """
+    results = []
     
-    # Check if paths are still the placeholder paths
-    if "path/to/your" in im_1_path:
-        print("\n⚠️  Please update the image file paths in the code!")
-        print("\nExample:")
-        print('   im_1_path = "/Users/username/images/photo1.jpg"')
-        print('   im_2_path = "/Users/username/images/photo2.jpg"')
-    else:
-        # Run the combined detection
-        result = detect_ai_vs_real_calibrated(im_1_path, im_2_path)
-        print(f"\nReturn value: {result}")
-    '''
-    # Example single image detection
-    im_path = "resources/girl_ai.jpg"  # Replace with actual path
-    print("=== SINGLE IMAGE AI DETECTION ===")
-    if "path/to/your" in im_path:
-        print("\n⚠️  Please update the image file path in the code!")
-        print("\nExample:")
-        print('   im_path = "/Users/username/images/photo.jpg"')
-    else:
-        result = detect_ai_single_image(im_path)
-        print(f"\nReturn value: {result}")
+    # Supported image extensions
+    valid_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.webp', '.tiff'}
+    
+    # Check if directory exists
+    if not os.path.exists(folder_path):
+        print(f"Error: Directory '{folder_path}' does not exist.")
+        return results
+    
+    # Process each file in the directory
+    for filename in os.listdir(folder_path):
+        # Check file extension
+        ext = os.path.splitext(filename)[1].lower()
+        if ext in valid_extensions:
+            file_path = os.path.join(folder_path, filename)
+            
+            print(f"\n{'='*60}")
+            print(f"PROCESSING: {filename}")
+            print(f"{'='*60}")
+            
+            try:
+                # Detect AI using your existing function
+                outcome, confidence, features = detect_ai_single_image(file_path)
+                
+                # Determine ground truth from filename
+                is_ai_ground_truth = "_ai" in filename.lower()
+                
+                # Store results
+                results.append({
+                    'filename': filename,
+                    'is_ai': is_ai_ground_truth,
+                    'result': (outcome, confidence, features)
+                })
+                
+                print(f"✓ Completed: {filename}")
+                
+            except Exception as e:
+                print(f"❌ Error processing {filename}: {str(e)}")
+                # Still add to results but with error
+                results.append({
+                    'filename': filename,
+                    'is_ai': "_ai" in filename.lower(),
+                    'result': (None, "error", {})
+                })
+    
+    print(f"\n{'='*60}")
+    print(f"PROCESSING COMPLETE: {len(results)} images analyzed")
+    print(f"{'='*60}")
+    
+    return results
+
+# Then use it like this:
+def process_folder_and_display_results():
+    # Define your image directory
+    #im_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../resources"))
+    
+    # Detect AI in all images
+    results = detect_ai_in_folder(im_dir)
+    
+    # Create DataFrame (this matches your existing code structure)
+    df = pd.DataFrame(results)
+    df["is_ai"] = df["filename"].str.contains(r"_ai(?=\.[^.]+$)", regex=True)
+    df[["outcome", "confidence", "features"]] = pd.DataFrame(df["result"].tolist(), index=df.index)
+    df["detected"] = np.where(df["outcome"] == True, "AI-Generated", "Human-Created")
+    
+    # Print summary
+    print("\n=== SUMMARY RESULTS ===")
+    df.drop(columns=["outcome"], inplace=True)
+    df = df[["filename", "is_ai", "result"]]
+    
+    #print(df.to_string(index=False))
+    
+    return df
+
+# Alternative: If you want to use the improved AI pattern detection
+def detect_ai_in_folder_with_improved_classification(folder_path=im_dir):
+    """
+    Same as above but uses the improved weighted scoring system
+    """
+    results = []
+    
+    valid_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.webp', '.tiff'}
+    
+    if not os.path.exists(folder_path):
+        print(f"Error: Directory '{folder_path}' does not exist.")
+        return results
+    
+    for filename in os.listdir(folder_path):
+        ext = os.path.splitext(filename)[1].lower()
+        if ext in valid_extensions:
+            file_path = os.path.join(folder_path, filename)
+            
+            print(f"\n{'='*60}")
+            print(f"PROCESSING: {filename}")
+            print(f"{'='*60}")
+            
+            try:
+                # Use the improved detection
+                outcome, confidence, features = detect_ai_single_image_improved(file_path)
+                
+                is_ai_ground_truth = "_ai" in filename.lower()
+                
+                results.append({
+                    'filename': filename,
+                    'is_ai': is_ai_ground_truth,
+                    'result': (outcome, confidence, features)
+                })
+                
+                print(f"✓ Completed: {filename}")
+                
+            except Exception as e:
+                print(f"❌ Error processing {filename}: {str(e)}")
+                results.append({
+                    'filename': filename,
+                    'is_ai': "_ai" in filename.lower(),
+                    'result': (None, "error", {})
+                })
+    
+    return results
+
+def detect_ai_single_image_improved(image_path=f'{im_dir}/girl2_ai.png'):
+    """
+    Improved version of your detection function with better thresholds
+    """
+    try:
+        # Load image
+        image = load_image(image_path)
+        
+        # Extract features
+        features = extract_image_features(image)
+        
+        # IMPROVED THRESHOLDS based on your actual data patterns
+        ai_feature_patterns = {
+            # STRONG AI INDICATORS (3.0 weight)
+            'eigen_condition_number': {'threshold': 1000000, 'direction': 'below', 'weight': 3.0},
+            'channel_correlation': {'threshold': 0.85, 'direction': 'below', 'weight': 3.0},
+            'color_consistency': {'threshold': 50.0, 'direction': 'below', 'weight': 3.0},
+            
+            # MODERATE AI INDICATORS (2.0 weight)  
+            'eigen_entropy': {'threshold': 0.45, 'direction': 'above', 'weight': 2.0},
+            'noise_skew': {'threshold': 0.1, 'direction': 'above', 'weight': 2.0},
+            'radial_smoothness': {'threshold': 0.1, 'direction': 'above', 'weight': 2.0},
+            
+            # WEAK AI INDICATORS (1.0 weight)
+            'eigen_decay_rate': {'threshold': 2.0, 'direction': 'below', 'weight': 1.0},
+            'high_freq_energy': {'threshold': 5.8, 'direction': 'above', 'weight': 1.0},
+            'noise_std': {'threshold': 130.0, 'direction': 'below', 'weight': 1.0},
+            'noise_regularity': {'threshold': 2000000, 'direction': 'below', 'weight': 1.0},
+            'local_inconsistency': {'threshold': 0.1, 'direction': 'above', 'weight': 1.0}
+        }
+        
+        total_score = 0
+        max_possible_score = 0
+        
+        for feature, config in ai_feature_patterns.items():
+            if feature in features:
+                value = features[feature]
+                threshold = config['threshold']
+                direction = config['direction']
+                weight = config['weight']
+                
+                max_possible_score += weight
+                
+                if direction == 'above' and value > threshold:
+                    total_score += weight
+                elif direction == 'below' and value < threshold:
+                    total_score += weight
+        
+        # Normalize score
+        normalized_score = total_score / max_possible_score if max_possible_score > 0 else 0
+        
+        # Improved decision logic
+        if normalized_score >= 0.7:
+            result = True
+            confidence = "high"
+        elif normalized_score >= 0.5:
+            result = True
+            confidence = "medium"
+        elif normalized_score >= 0.3:
+            result = None
+            confidence = "low"
+        else:
+            result = False
+            confidence = "high" if normalized_score < 0.2 else "medium"
+
+        return result, confidence, features
+
+    except Exception as e:
+        print(f"Error in AI detection: {e}")
+        return None, "error", {}
+
+'''
+# Main execution
+if __name__ == "__main__":
+    # Option 1: Use your original detection
+    df = process_folder_and_display_results()
+'''

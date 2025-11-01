@@ -3,6 +3,7 @@ import sys
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
+import fire
 
 # Ensure the app directory (your working directory) is on sys.path
 APP_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -11,9 +12,9 @@ if APP_DIR not in sys.path:
 
 from colorprint.richstuf import print_colorful_results
 
-from main import detect_ai_single_image  # main.py lives inside app/
+from main import *  #detect_ai_single_image # main.py lives inside app/
 
-def detect_ai_in_folder(im_dir):
+def detect_ai_in_folder(im_dir, model: str):
     results = []
     valid_exts = ('.jpg', '.jpeg', '.png', '.bmp', '.webp', '.tiff')
     image_files = [f for f in os.listdir(im_dir) if f.lower().endswith(valid_exts)]
@@ -39,12 +40,26 @@ def detect_ai_in_folder(im_dir):
 
 
     df = pd.DataFrame(results)
-    print_colorful_results(df)
-    
-    return df
+    if model == "net":
+        net = process_folder_and_display_results() # detect_ai_single_image_improved()
+        print_colorful_results(net)
+        return net
+    elif model == "scalpel":
+        scalpel = detect_ai_in_folder_with_improved_classification()
+        print_colorful_results(scalpel)
+        return scalpel
+    else:
+        print("Invalid model specified. Use 'net' or 'scalpel'.")
+        return None
+
+def main(model: str):
+    im_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../resources"))
+    return detect_ai_in_folder(im_dir, model=model)
 
 
 if __name__ == "__main__":
     # Point to your images directory
     im_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../resources"))
-    detect_ai_in_folder(im_dir)
+    detect_ai_in_folder(im_dir, model="scalpel")  # or model="scalpel"
+    #fire.Fire(main)
+
