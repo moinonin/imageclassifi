@@ -44,6 +44,29 @@ A Python-based application for detecting AI-generated images using computer visi
    ```bash
    git clone [repository-url]
    cd [project-directory]
+   ```
+
+2. **Installation**
+# Create virtual environment
+python -m venv .venv
+
+# Activate virtual environment
+# On Linux/Mac:
+```python
+source .venv/bin/activate
+```
+# On Windows:
+```python
+.venv\Scripts\activate
+```
+# Install requirements
+```python
+pip install -r requirements.txt
+```
+3. **Quick start**
+````bash
+make troydect
+```
 
 
 ## How to Add New Images for Detection
