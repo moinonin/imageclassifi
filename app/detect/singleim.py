@@ -60,6 +60,6 @@ def main(model: str):
 if __name__ == "__main__":
     # Point to your images directory
     im_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../resources"))
-    detect_ai_in_folder(im_dir, model="scalpel")  # or model="scalpel"
+    detect_ai_in_folder(im_dir, model="net")  # or model="scalpel"
     #fire.Fire(main)
 
