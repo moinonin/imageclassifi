@@ -48,7 +48,7 @@ A Python-based application for detecting AI-generated images using computer visi
 
 2. **Installation**
 # Create virtual environment
-python -m venv .venv
+python3.x -m venv .venv
 
 # Activate virtual environment
 # On Linux/Mac:
