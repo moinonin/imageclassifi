@@ -64,7 +64,8 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 3. **Quick start**
-````bash
+```
+bash
 make troydect
 ```
 
