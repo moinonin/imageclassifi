@@ -8,7 +8,6 @@ import numpy as np
 def print_colorful_results(results):
     # Create DataFrame
     df = pd.DataFrame(results)
-    print(df.columns)
     df["is_ai"] = df["filename"].str.contains(r"_ai(?=\.[^.]+$)", regex=True)
     df[["outcome", "confidence", "features"]] = pd.DataFrame(df["result"].tolist(), index=df.index)
     df["detected"] = np.where(df["outcome"] == True, "AI-Generated", "Human-Created")
